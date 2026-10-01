@@ -8,6 +8,7 @@ class ItemProvider extends ChangeNotifier {
   List<ItemModel> _items = [];
   bool _isLoading = false;
   String _searchQuery = '';
+  int? _currentBusinessId;
 
   ItemProvider({required IItemRepository repository})
       : _repository = repository {
@@ -17,14 +18,26 @@ class ItemProvider extends ChangeNotifier {
   List<ItemModel> get items => _items;
   bool get isLoading => _isLoading;
   String get searchQuery => _searchQuery;
+  int? get currentBusinessId => _currentBusinessId;
 
-  Future<void> loadItems({String? query}) async {
+  void setBusinessId(int? id) {
+    if (_currentBusinessId != id) {
+      _currentBusinessId = id;
+      loadItems();
+    }
+  }
+
+  Future<void> loadItems({String? query, int? businessId}) async {
     _isLoading = true;
-    _searchQuery = query ?? '';
+    if (query != null) _searchQuery = query;
+    if (businessId != null) _currentBusinessId = businessId;
     notifyListeners();
 
     try {
-      _items = await _repository.getItems(searchQuery: _searchQuery);
+      _items = await _repository.getItems(
+        searchQuery: _searchQuery,
+        businessId: _currentBusinessId,
+      );
     } catch (_) {
       _items = [];
     } finally {
@@ -35,8 +48,11 @@ class ItemProvider extends ChangeNotifier {
 
   Future<ItemModel?> addItem(ItemModel item) async {
     try {
-      final id = await _repository.insertItem(item);
-      final created = item.copyWith(id: id);
+      final itemWithBiz = item.businessId == null && _currentBusinessId != null
+          ? item.copyWith(businessId: _currentBusinessId)
+          : item;
+      final id = await _repository.insertItem(itemWithBiz);
+      final created = itemWithBiz.copyWith(id: id);
       await loadItems(query: _searchQuery);
       return created;
     } catch (_) {

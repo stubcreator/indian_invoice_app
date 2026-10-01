@@ -9,21 +9,29 @@ class SqliteItemRepository implements IItemRepository {
       : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   @override
-  Future<List<ItemModel>> getItems({String? searchQuery}) async {
+  Future<List<ItemModel>> getItems({String? searchQuery, int? businessId}) async {
     final db = await _dbHelper.database;
-    List<Map<String, dynamic>> results;
+    final whereClauses = <String>[];
+    final whereArgs = <dynamic>[];
+
+    if (businessId != null) {
+      whereClauses.add('(business_id = ? OR business_id IS NULL)');
+      whereArgs.add(businessId);
+    }
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final query = '%${searchQuery.trim()}%';
-      results = await db.query(
-        'items',
-        where: 'name LIKE ? OR hsn_sac_code LIKE ? OR description LIKE ?',
-        whereArgs: [query, query, query],
-        orderBy: 'name ASC',
-      );
-    } else {
-      results = await db.query('items', orderBy: 'name ASC');
+      whereClauses.add('(name LIKE ? OR hsn_sac_code LIKE ? OR description LIKE ?)');
+      whereArgs.addAll([query, query, query]);
     }
+
+    final where = whereClauses.isNotEmpty ? whereClauses.join(' AND ') : null;
+    final results = await db.query(
+      'items',
+      where: where,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      orderBy: 'name ASC',
+    );
 
     return results.map((m) => ItemModel.fromMap(m)).toList();
   }

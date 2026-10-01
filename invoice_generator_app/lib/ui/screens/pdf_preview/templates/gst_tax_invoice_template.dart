@@ -9,7 +9,7 @@ import '../../../../data/models/invoice_model.dart';
 import '../pdf_font_helper.dart';
 
 class GstTaxInvoiceTemplate {
-  static Future<Uint8List> generate(InvoiceModel invoice) async {
+  static Future<Uint8List> generate(InvoiceModel invoice, {String? colorHex}) async {
     final pdf = pw.Document(theme: await PdfFontHelper.getPdfTheme());
 
     final business = invoice.business;
@@ -45,7 +45,9 @@ class GstTaxInvoiceTemplate {
       );
     }
 
-    final primaryColor = PdfColor.fromHex('1E3A8A');
+    final primaryColor = colorHex != null
+        ? PdfColor.fromHex(colorHex.replaceAll('#', ''))
+        : PdfColor.fromHex('1E3A8A');
     final mutedTextColor = PdfColor.fromHex('64748B');
     final borderColor = PdfColor.fromHex('CBD5E1');
 

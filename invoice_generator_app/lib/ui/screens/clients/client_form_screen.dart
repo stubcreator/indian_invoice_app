@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/indian_states.dart';
 import '../../../data/models/client_model.dart';
@@ -114,9 +115,7 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(isEditing ? 'Edit Customer' : 'Add New Customer'),
-      ),
+      appBar: AppBar(title: Text(isEditing ? 'Edit Customer' : 'Add New Customer')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -160,7 +159,8 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
 
             // Place of Supply / State Dropdown
             DropdownButtonFormField<IndianState>(
-              value: _selectedState,
+              initialValue: _selectedState,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Place of Supply (State) *',
                 prefixIcon: Icon(Icons.location_on_outlined),
@@ -168,7 +168,7 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
               items: IndianStates.all.map((s) {
                 return DropdownMenuItem(
                   value: s,
-                  child: Text('${s.code} - ${s.name}', overflow: TextOverflow.ellipsis),
+                  child: Text(s.name, overflow: TextOverflow.ellipsis),
                 );
               }).toList(),
               onChanged: (s) {
@@ -178,31 +178,16 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Phone & Email
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Phone',
-                      prefixIcon: Icon(Icons.phone_outlined),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                  ),
-                ),
-              ],
+            TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined)),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
             ),
             const SizedBox(height: 12),
 

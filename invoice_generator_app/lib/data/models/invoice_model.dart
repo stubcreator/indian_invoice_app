@@ -44,6 +44,7 @@ class InvoiceModel {
   final String? termsConditions;
   final String? signaturePath;
   final int templateId;
+  final String colorHex;
   final String createdAt;
 
   // Attached relational data
@@ -88,6 +89,7 @@ class InvoiceModel {
     this.termsConditions,
     this.signaturePath,
     this.templateId = 1,
+    this.colorHex = '#1E3A8A',
     required this.createdAt,
     this.items = const [],
     this.client,
@@ -122,6 +124,7 @@ class InvoiceModel {
     String? termsConditions,
     String? signaturePath,
     int templateId = 1,
+    String colorHex = '#1E3A8A',
     String? createdAt,
     required List<InvoiceItemModel> items,
     ClientModel? client,
@@ -211,6 +214,7 @@ class InvoiceModel {
       termsConditions: termsConditions,
       signaturePath: signaturePath,
       templateId: templateId,
+      colorHex: colorHex,
       createdAt: createdAt ?? DateTime.now().toIso8601String(),
       items: items,
       client: client,
@@ -255,6 +259,7 @@ class InvoiceModel {
     String? termsConditions,
     String? signaturePath,
     int? templateId,
+    String? colorHex,
     String? createdAt,
     List<InvoiceItemModel>? items,
     ClientModel? client,
@@ -297,6 +302,7 @@ class InvoiceModel {
       termsConditions: termsConditions ?? this.termsConditions,
       signaturePath: signaturePath ?? this.signaturePath,
       templateId: templateId ?? this.templateId,
+      colorHex: colorHex ?? this.colorHex,
       createdAt: createdAt ?? this.createdAt,
       items: items ?? this.items,
       client: client ?? this.client,
@@ -342,6 +348,7 @@ class InvoiceModel {
       'terms_conditions': termsConditions,
       'signature_path': signaturePath,
       'template_id': templateId,
+      'color_hex': colorHex,
       'created_at': createdAt,
     };
   }
@@ -383,6 +390,7 @@ class InvoiceModel {
       termsConditions: map['terms_conditions'],
       signaturePath: map['signature_path'],
       templateId: map['template_id'] as int? ?? 1,
+      colorHex: map['color_hex'] as String? ?? '#1E3A8A',
       createdAt: map['created_at'] ?? '',
       items: items ?? [],
       client: client,

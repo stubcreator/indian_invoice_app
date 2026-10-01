@@ -172,7 +172,8 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 Expanded(
                   flex: 1,
                   child: DropdownButtonFormField<String>(
-                    value: _selectedUnit,
+                    initialValue: _selectedUnit,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Unit'),
                     items: GstSlabs.commonUnits.map((u) {
                       return DropdownMenuItem(value: u, child: Text(u));
@@ -189,7 +190,8 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
             // GST Slab Rate Dropdown
             if (settings.isGstMode) ...[
               DropdownButtonFormField<double>(
-                value: _selectedGstRate,
+                initialValue: _selectedGstRate,
+                isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Default GST Rate (%)'),
                 items: GstSlabs.standardRates.map((r) {
                   return DropdownMenuItem(

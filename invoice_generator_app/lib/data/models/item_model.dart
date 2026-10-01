@@ -1,5 +1,6 @@
 class ItemModel {
   final int? id;
+  final int? businessId;
   final String name;
   final String? description;
   final String? hsnSacCode;
@@ -12,6 +13,7 @@ class ItemModel {
 
   ItemModel({
     this.id,
+    this.businessId,
     required this.name,
     this.description,
     this.hsnSacCode,
@@ -25,6 +27,7 @@ class ItemModel {
 
   ItemModel copyWith({
     int? id,
+    int? businessId,
     String? name,
     String? description,
     String? hsnSacCode,
@@ -37,6 +40,7 @@ class ItemModel {
   }) {
     return ItemModel(
       id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
       name: name ?? this.name,
       description: description ?? this.description,
       hsnSacCode: hsnSacCode ?? this.hsnSacCode,
@@ -52,6 +56,7 @@ class ItemModel {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
+      'business_id': businessId,
       'name': name,
       'description': description,
       'hsn_sac_code': hsnSacCode,
@@ -67,6 +72,7 @@ class ItemModel {
   factory ItemModel.fromMap(Map<String, dynamic> map) {
     return ItemModel(
       id: map['id'] as int?,
+      businessId: map['business_id'] as int?,
       name: map['name'] ?? '',
       description: map['description'],
       hsnSacCode: map['hsn_sac_code'],

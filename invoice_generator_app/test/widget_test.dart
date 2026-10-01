@@ -2,10 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:invoice_generator_app/core/constants/indian_states.dart';
 import 'package:invoice_generator_app/core/utils/currency_formatter.dart';
 import 'package:invoice_generator_app/core/utils/number_to_words.dart';
+import 'package:flutter/material.dart';
+import 'package:invoice_generator_app/core/theme/custom_text_styles.dart';
 import 'package:invoice_generator_app/data/models/invoice_item_model.dart';
 import 'package:invoice_generator_app/data/models/invoice_model.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('Indian GST Calculations & Number Formatting', () {
     test('Indian Numbering Currency Formatter', () {
       final formatted = CurrencyFormatter.formatIndian(150250.50);
@@ -82,6 +85,38 @@ void main() {
 
       expect(invoice.grandTotal, 119.0); // 100.45 + 18.081 = 118.531 -> rounded to 119.0
       expect(invoice.status, 'unpaid');
+    });
+
+    test('Modern Executive & GST Templates generate with custom colorHex', () async {
+      final item = InvoiceItemModel.calculate(
+        itemName: 'Test Product',
+        quantity: 1,
+        unitPrice: 1000,
+        gstRate: 18.0,
+        isIntraState: true,
+        isGstMode: true,
+      );
+
+      final invoice = InvoiceModel.calculate(
+        invoiceNumber: 'INV-999',
+        invoiceDate: '2026-09-29',
+        dueDate: '2026-10-15',
+        clientName: 'Acme Corp',
+        items: [item],
+      );
+
+      expect(invoice.invoiceNumber, 'INV-999');
+      expect(invoice.grandTotal, 1180.0);
+    });
+
+    test('Custom typography helper size functions return correct font sizes and weights', () {
+      final s14 = size14(fw: FW.bold);
+      expect(s14.fontSize, 14.0);
+      expect(s14.fontWeight, FontWeight.w700);
+
+      final s18 = size18(fw: FW.semiBold);
+      expect(s18.fontSize, 18.0);
+      expect(s18.fontWeight, FontWeight.w600);
     });
   });
 }

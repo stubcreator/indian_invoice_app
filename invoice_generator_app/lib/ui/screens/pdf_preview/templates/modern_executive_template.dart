@@ -7,7 +7,7 @@ import '../../../../data/models/invoice_model.dart';
 import '../pdf_font_helper.dart';
 
 class ModernExecutiveTemplate {
-  static Future<Uint8List> generate(InvoiceModel invoice) async {
+  static Future<Uint8List> generate(InvoiceModel invoice, {String? colorHex}) async {
     final pdf = pw.Document(theme: await PdfFontHelper.getPdfTheme());
     final business = invoice.business;
 
@@ -27,8 +27,12 @@ class ModernExecutiveTemplate {
       } catch (_) {}
     }
 
-    final accentColor = PdfColor.fromHex('4F46E5'); // Modern Indigo
-    final lightBg = PdfColor.fromHex('F5F3FF'); // Indigo 50
+    final accentColor = colorHex != null
+        ? PdfColor.fromHex(colorHex.replaceAll('#', ''))
+        : PdfColor.fromHex('4F46E5'); // Modern Indigo
+    final lightBg = colorHex != null
+        ? PdfColor(accentColor.red, accentColor.green, accentColor.blue, 0.08)
+        : PdfColor.fromHex('F5F3FF'); // Indigo 50
     final darkText = PdfColor.fromHex('1E1B4B');
     final mutedText = PdfColor.fromHex('6B7280');
 

@@ -8,6 +8,7 @@ class ClientProvider extends ChangeNotifier {
   List<ClientModel> _clients = [];
   bool _isLoading = false;
   String _searchQuery = '';
+  int? _currentBusinessId;
 
   ClientProvider({required IClientRepository repository})
       : _repository = repository {
@@ -17,14 +18,26 @@ class ClientProvider extends ChangeNotifier {
   List<ClientModel> get clients => _clients;
   bool get isLoading => _isLoading;
   String get searchQuery => _searchQuery;
+  int? get currentBusinessId => _currentBusinessId;
 
-  Future<void> loadClients({String? query}) async {
+  void setBusinessId(int? id) {
+    if (_currentBusinessId != id) {
+      _currentBusinessId = id;
+      loadClients();
+    }
+  }
+
+  Future<void> loadClients({String? query, int? businessId}) async {
     _isLoading = true;
-    _searchQuery = query ?? '';
+    if (query != null) _searchQuery = query;
+    if (businessId != null) _currentBusinessId = businessId;
     notifyListeners();
 
     try {
-      _clients = await _repository.getClients(searchQuery: _searchQuery);
+      _clients = await _repository.getClients(
+        searchQuery: _searchQuery,
+        businessId: _currentBusinessId,
+      );
     } catch (_) {
       _clients = [];
     } finally {
@@ -35,8 +48,11 @@ class ClientProvider extends ChangeNotifier {
 
   Future<ClientModel?> addClient(ClientModel client) async {
     try {
-      final id = await _repository.insertClient(client);
-      final created = client.copyWith(id: id);
+      final clientWithBiz = client.businessId == null && _currentBusinessId != null
+          ? client.copyWith(businessId: _currentBusinessId)
+          : client;
+      final id = await _repository.insertClient(clientWithBiz);
+      final created = clientWithBiz.copyWith(id: id);
       await loadClients(query: _searchQuery);
       return created;
     } catch (_) {

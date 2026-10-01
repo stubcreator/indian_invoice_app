@@ -24,7 +24,7 @@ class DashboardMetrics {
 }
 
 abstract class IInvoiceRepository {
-  Future<List<InvoiceModel>> getInvoices({String? status, String? searchQuery});
+  Future<List<InvoiceModel>> getInvoices({String? status, String? searchQuery, int? businessId});
   Future<InvoiceModel?> getInvoiceById(int id);
   Future<int> insertInvoice(InvoiceModel invoice);
   Future<int> updateInvoice(InvoiceModel invoice);
@@ -32,5 +32,5 @@ abstract class IInvoiceRepository {
   Future<String> generateNextInvoiceNumber(String prefix);
   Future<int> addPayment(InvoicePaymentModel payment);
   Future<List<InvoicePaymentModel>> getPayments(int invoiceId);
-  Future<DashboardMetrics> getDashboardMetrics();
+  Future<DashboardMetrics> getDashboardMetrics({int? businessId});
 }

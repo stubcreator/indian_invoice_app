@@ -11,7 +11,7 @@ import 'providers/client_provider.dart';
 import 'providers/invoice_provider.dart';
 import 'providers/item_provider.dart';
 import 'providers/settings_provider.dart';
-import 'ui/screens/dashboard/dashboard_screen.dart';
+import 'ui/screens/navigation/main_navigation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,7 +56,7 @@ class InvoiceApp extends StatelessWidget {
       title: 'Invoice Generator',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const DashboardScreen(),
+      home: const MainNavigationScreen(),
     );
   }
 }

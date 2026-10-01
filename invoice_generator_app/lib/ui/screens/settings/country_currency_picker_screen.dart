@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/country_currency_model.dart';
 import '../../../providers/settings_provider.dart';
+import '../../common/country_flag_widget.dart';
 
 class CountryCurrencyPickerScreen extends StatefulWidget {
   const CountryCurrencyPickerScreen({super.key});
@@ -52,9 +54,7 @@ class _CountryCurrencyPickerScreenState extends State<CountryCurrencyPickerScree
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Select Country & Currency'),
-      ),
+      appBar: AppBar(title: const Text('Select Country & Currency')),
       body: Column(
         children: [
           // Search Input
@@ -85,15 +85,17 @@ class _CountryCurrencyPickerScreenState extends State<CountryCurrencyPickerScree
                 ? const Center(child: Text('No matching countries found'))
                 : ListView.separated(
                     itemCount: _filtered.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final item = _filtered[index];
                       final isSelected = activeCountry?.isoAlpha2.toUpperCase() == item.isoAlpha2.toUpperCase();
 
                       return ListTile(
-                        leading: Text(
-                          item.flag,
-                          style: const TextStyle(fontSize: 28),
+                        leading: CountryFlagWidget(
+                          flag: item.flag,
+                          width: 38,
+                          height: 26,
+                          borderRadius: 4,
                         ),
                         title: Row(
                           children: [
@@ -124,12 +126,11 @@ class _CountryCurrencyPickerScreenState extends State<CountryCurrencyPickerScree
                           '${item.currencyName} (${item.currencyCode}) • Symbol: ${item.currencySymbol}',
                           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
-                        trailing: isSelected
-                            ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
-                            : null,
+                        trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
                         onTap: () async {
+                          final nav = Navigator.of(context);
                           await settingsProv.setCountry(item);
-                          if (mounted) Navigator.pop(context);
+                          nav.pop();
                         },
                       );
                     },

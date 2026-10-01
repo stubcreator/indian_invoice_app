@@ -1,4 +1,3 @@
-import 'package:sqflite/sqflite.dart';
 import '../../../core/database/database_helper.dart';
 import '../../models/invoice_model.dart';
 import '../../models/invoice_item_model.dart';
@@ -14,10 +13,15 @@ class SqliteInvoiceRepository implements IInvoiceRepository {
       : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
   @override
-  Future<List<InvoiceModel>> getInvoices({String? status, String? searchQuery}) async {
+  Future<List<InvoiceModel>> getInvoices({String? status, String? searchQuery, int? businessId}) async {
     final db = await _dbHelper.database;
     final whereClauses = <String>[];
     final whereArgs = <dynamic>[];
+
+    if (businessId != null) {
+      whereClauses.add('(business_id = ? OR business_id IS NULL)');
+      whereArgs.add(businessId);
+    }
 
     if (status != null && status.isNotEmpty && status.toLowerCase() != 'all') {
       whereClauses.add('status = ?');
@@ -80,9 +84,18 @@ class SqliteInvoiceRepository implements IInvoiceRepository {
 
     // Fetch business
     BusinessModel? business;
-    final bResults = await db.query('businesses', limit: 1);
-    if (bResults.isNotEmpty) {
-      business = BusinessModel.fromMap(bResults.first);
+    final bId = invoiceMap['business_id'] as int?;
+    if (bId != null) {
+      final bResults = await db.query('businesses', where: 'id = ?', whereArgs: [bId]);
+      if (bResults.isNotEmpty) {
+        business = BusinessModel.fromMap(bResults.first);
+      }
+    }
+    if (business == null) {
+      final bResults = await db.query('businesses', limit: 1);
+      if (bResults.isNotEmpty) {
+        business = BusinessModel.fromMap(bResults.first);
+      }
     }
 
     return InvoiceModel.fromMap(
@@ -176,13 +189,16 @@ class SqliteInvoiceRepository implements IInvoiceRepository {
       // 1. Insert payment record
       final pId = await txn.insert('invoice_payments', payment.toMap());
 
-      // 2. Recalculate invoice totals
+      // 2. Recalculate invoice totals from actual payment sum
       final invoiceRes =
           await txn.query('invoices', where: 'id = ?', whereArgs: [payment.invoiceId]);
       if (invoiceRes.isNotEmpty) {
-        final currentPaid = (invoiceRes.first['paid_amount'] as num?)?.toDouble() ?? 0.0;
         final grandTotal = (invoiceRes.first['grand_total'] as num?)?.toDouble() ?? 0.0;
-        final newPaid = currentPaid + payment.amount;
+        final sumRes = await txn.rawQuery(
+          'SELECT SUM(amount) as total_paid FROM invoice_payments WHERE invoice_id = ?',
+          [payment.invoiceId],
+        );
+        final newPaid = (sumRes.first['total_paid'] as num?)?.toDouble() ?? 0.0;
         final newBalance = (grandTotal - newPaid).clamp(0.0, double.infinity);
 
         String newStatus = 'unpaid';
@@ -221,8 +237,11 @@ class SqliteInvoiceRepository implements IInvoiceRepository {
   }
 
   @override
-  Future<DashboardMetrics> getDashboardMetrics() async {
+  Future<DashboardMetrics> getDashboardMetrics({int? businessId}) async {
     final db = await _dbHelper.database;
+    final whereSql = businessId != null ? 'WHERE (business_id = ? OR business_id IS NULL)' : '';
+    final whereArgs = businessId != null ? [businessId] : null;
+
     final results = await db.rawQuery('''
       SELECT 
         COUNT(*) as total_count,
@@ -234,7 +253,8 @@ class SqliteInvoiceRepository implements IInvoiceRepository {
         SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) as overdue_count,
         SUM(CASE WHEN status = 'overdue' THEN balance_due ELSE 0 END) as overdue_amount
       FROM invoices
-    ''');
+      $whereSql
+    ''', whereArgs);
 
     if (results.isNotEmpty) {
       final row = results.first;

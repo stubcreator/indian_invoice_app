@@ -1,17 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/pdf_export_helper.dart';
 import '../../../data/models/invoice_model.dart';
 import '../../../providers/invoice_provider.dart';
 import '../../common/app_button.dart';
 import '../../common/app_card.dart';
 import '../../common/status_badge.dart';
-import '../pdf_preview/pdf_preview_screen.dart';
-import '../pdf_preview/templates/gst_tax_invoice_template.dart';
 import 'create_invoice_screen.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -72,14 +69,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Record Payment',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(context),
-                      ),
+                      const Text('Record Payment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                      IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -98,7 +89,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedMode,
+                    initialValue: selectedMode,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Payment Mode'),
                     items: const [
                       DropdownMenuItem(value: 'UPI', child: Text('UPI (GPay, PhonePe, Paytm)')),
@@ -119,10 +111,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       if (amount <= 0) return;
 
                       final success = await context.read<InvoiceProvider>().recordPayment(
-                            invoiceId: _invoice!.id!,
-                            amount: amount,
-                            paymentMode: selectedMode,
-                          );
+                        invoiceId: _invoice!.id!,
+                        amount: amount,
+                        paymentMode: selectedMode,
+                      );
 
                       if (success && mounted) {
                         Navigator.pop(context);
@@ -142,21 +134,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _shareInvoice() async {
     if (_invoice == null) return;
-    try {
-      final pdfBytes = await GstTaxInvoiceTemplate.generate(_invoice!);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/Invoice_${_invoice!.invoiceNumber}.pdf');
-      await file.writeAsBytes(pdfBytes);
-
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/pdf')],
-        text: 'Tax Invoice #${_invoice!.invoiceNumber} from ${_invoice!.business?.businessName ?? ""}. Total: ${_invoice!.currencySymbol} ${_invoice!.grandTotal.toStringAsFixed(2)}',
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e')));
-      }
-    }
+    await PdfExportHelper.sharePdf(context, _invoice!);
   }
 
   @override
@@ -168,9 +146,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
 
     if (_invoice == null) {
-      return const Scaffold(
-        body: Center(child: Text('Invoice not found')),
-      );
+      return const Scaffold(body: Center(child: Text('Invoice not found')));
     }
 
     final inv = _invoice!;
@@ -217,8 +193,20 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Edit')])),
-              PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: AppColors.danger), SizedBox(width: 8), Text('Delete', style: TextStyle(color: AppColors.danger))])),
+              PopupMenuItem(
+                value: 'edit',
+                child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Edit')]),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, size: 18, color: AppColors.danger),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: AppColors.danger)),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
@@ -233,10 +221,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '# ${inv.invoiceNumber}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
+                    Text('# ${inv.invoiceNumber}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     StatusBadge(status: inv.status),
                   ],
                 ),
@@ -265,29 +250,36 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                   children: [
                     Expanded(
                       child: AppButton(
-                        text: 'Preview PDF',
-                        icon: Icons.picture_as_pdf_rounded,
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => PdfPreviewScreen(invoice: inv)),
-                          );
-                        },
+                        text: 'Download',
+                        icon: Icons.file_download_outlined,
+                        onPressed: () => PdfExportHelper.downloadAndOpenPdf(context, inv),
                       ),
                     ),
-                    if (inv.balanceDue > 0) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: AppButton(
-                          text: 'Record Payment',
-                          isOutlined: true,
-                          icon: Icons.payment_rounded,
-                          onPressed: _showRecordPaymentDialog,
-                        ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Share',
+                        isOutlined: true,
+                        icon: Icons.share_rounded,
+                        onPressed: () => PdfExportHelper.sharePdf(context, inv),
                       ),
-                    ],
+                    ),
                   ],
                 ),
+                if (inv.balanceDue > 0) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: AppButton(
+                      text: 'Record Payment',
+                      isOutlined: true,
+                      backgroundColor: AppColors.surface,
+                      textColor: AppColors.primary,
+                      icon: Icons.payment_rounded,
+                      onPressed: _showRecordPaymentDialog,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -301,14 +293,21 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                 const Text('Customer Details', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 Text(inv.clientName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                if (inv.clientCompanyName != null) Text(inv.clientCompanyName!, style: const TextStyle(color: AppColors.textSecondary)),
+                if (inv.clientCompanyName != null)
+                  Text(inv.clientCompanyName!, style: const TextStyle(color: AppColors.textSecondary)),
                 if (inv.clientGstin != null && inv.clientGstin!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text('GSTIN: ${inv.clientGstin}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  Text(
+                    'GSTIN: ${inv.clientGstin}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary),
+                  ),
                 ],
                 if (inv.placeOfSupply != null && inv.placeOfSupply!.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text('Place of Supply: ${inv.placeOfSupply} (${inv.placeOfSupplyCode ?? ""})', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(
+                    'Place of Supply: ${inv.placeOfSupply} (${inv.placeOfSupplyCode ?? ""})',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
                 ],
               ],
             ),
@@ -341,7 +340,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                           ),
                         ),
                         Text(
-                          CurrencyFormatter.format(item.totalAmount, symbol: inv.currencySymbol, currencyCode: inv.currencyCode),
+                          CurrencyFormatter.format(
+                            item.totalAmount,
+                            symbol: inv.currencySymbol,
+                            currencyCode: inv.currencyCode,
+                          ),
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ],
@@ -394,13 +397,22 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildSummaryLine(String label, double amount, InvoiceModel inv, {bool isBold = false, bool isNegative = false}) {
+  Widget _buildSummaryLine(
+    String label,
+    double amount,
+    InvoiceModel inv, {
+    bool isBold = false,
+    bool isNegative = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal, fontSize: isBold ? 15 : 13)),
+          Text(
+            label,
+            style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal, fontSize: isBold ? 15 : 13),
+          ),
           Text(
             CurrencyFormatter.format(amount, symbol: inv.currencySymbol, currencyCode: inv.currencyCode),
             style: TextStyle(

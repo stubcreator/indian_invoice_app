@@ -15,6 +15,7 @@ class InvoiceProvider extends ChangeNotifier {
   String _selectedStatus = 'all';
   String _searchQuery = '';
   bool _isLoading = false;
+  int? _currentBusinessId;
 
   // Active Draft state for creating/editing invoice
   InvoiceModel? _draftInvoice;
@@ -30,16 +31,27 @@ class InvoiceProvider extends ChangeNotifier {
   String get selectedStatus => _selectedStatus;
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
+  int? get currentBusinessId => _currentBusinessId;
   InvoiceModel? get draftInvoice => _draftInvoice;
 
-  Future<void> loadInvoices() async {
+  void setBusinessId(int? id) {
+    if (_currentBusinessId != id) {
+      _currentBusinessId = id;
+      loadInvoices();
+      loadMetrics();
+    }
+  }
+
+  Future<void> loadInvoices({int? businessId}) async {
     _isLoading = true;
+    if (businessId != null) _currentBusinessId = businessId;
     notifyListeners();
 
     try {
       _invoices = await _repository.getInvoices(
         status: _selectedStatus,
         searchQuery: _searchQuery,
+        businessId: _currentBusinessId,
       );
     } catch (_) {
       _invoices = [];
@@ -49,9 +61,10 @@ class InvoiceProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadMetrics() async {
+  Future<void> loadMetrics({int? businessId}) async {
+    if (businessId != null) _currentBusinessId = businessId;
     try {
-      _metrics = await _repository.getDashboardMetrics();
+      _metrics = await _repository.getDashboardMetrics(businessId: _currentBusinessId);
       notifyListeners();
     } catch (_) {}
   }
@@ -157,6 +170,8 @@ class InvoiceProvider extends ChangeNotifier {
     String? termsConditions,
     String? signaturePath,
     int? templateId,
+    int? businessId,
+    BusinessModel? business,
   }) {
     if (_draftInvoice == null) return;
 
@@ -173,6 +188,8 @@ class InvoiceProvider extends ChangeNotifier {
       termsConditions: termsConditions,
       signaturePath: signaturePath,
       templateId: templateId,
+      businessId: businessId ?? business?.id,
+      business: business,
     );
 
     _recalculateDraft();
@@ -300,6 +317,9 @@ class InvoiceProvider extends ChangeNotifier {
     if (_draftInvoice == null) return null;
 
     try {
+      if (_draftInvoice!.businessId == null && _currentBusinessId != null) {
+        _draftInvoice = _draftInvoice!.copyWith(businessId: _currentBusinessId);
+      }
       int savedId;
       if (_draftInvoice!.id == null) {
         savedId = await _repository.insertInvoice(_draftInvoice!);
@@ -364,5 +384,20 @@ class InvoiceProvider extends ChangeNotifier {
   /// Get single invoice by ID
   Future<InvoiceModel?> getInvoice(int id) async {
     return await _repository.getInvoiceById(id);
+  }
+
+  /// Update template ID and color hex on an existing invoice
+  Future<void> updateInvoiceTemplate(int id, int templateId, {String? colorHex}) async {
+    try {
+      final inv = await _repository.getInvoiceById(id);
+      if (inv != null) {
+        final updated = inv.copyWith(
+          templateId: templateId,
+          colorHex: colorHex ?? inv.colorHex,
+        );
+        await _repository.updateInvoice(updated);
+        await loadInvoices();
+      }
+    } catch (_) {}
   }
 }

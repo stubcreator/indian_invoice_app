@@ -21,14 +21,42 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 4,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onConfigure: _onConfigure,
     );
   }
 
   Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try {
+        await db.execute('ALTER TABLE clients ADD COLUMN business_id INTEGER');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE items ADD COLUMN business_id INTEGER');
+      } catch (_) {}
+    }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE app_settings ADD COLUMN active_business_id INTEGER');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE clients ADD COLUMN business_id INTEGER');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE items ADD COLUMN business_id INTEGER');
+      } catch (_) {}
+    }
+    if (oldVersion < 4) {
+      try {
+        await db.execute("ALTER TABLE invoices ADD COLUMN color_hex TEXT DEFAULT '#1E3A8A'");
+      } catch (_) {}
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -64,6 +92,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE clients (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        business_id INTEGER,
         name TEXT NOT NULL,
         company_name TEXT,
         gstin TEXT,
@@ -74,7 +103,8 @@ class DatabaseHelper {
         state TEXT,
         state_code TEXT,
         country TEXT DEFAULT 'India',
-        notes TEXT
+        notes TEXT,
+        FOREIGN KEY (business_id) REFERENCES businesses (id) ON DELETE CASCADE
       )
     ''');
 
@@ -82,6 +112,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        business_id INTEGER,
         name TEXT NOT NULL,
         description TEXT,
         hsn_sac_code TEXT,
@@ -132,6 +163,7 @@ class DatabaseHelper {
         terms_conditions TEXT,
         signature_path TEXT,
         template_id INTEGER DEFAULT 1,
+        color_hex TEXT DEFAULT '#1E3A8A',
         created_at TEXT,
         FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE SET NULL,
         FOREIGN KEY (business_id) REFERENCES businesses (id) ON DELETE SET NULL

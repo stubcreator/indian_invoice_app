@@ -40,10 +40,12 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _qtyController = TextEditingController(text: '1');
   final TextEditingController _discountController = TextEditingController(text: '0');
+  final TextEditingController _searchCatalogController = TextEditingController();
 
   String _selectedUnit = 'PCS';
   double _selectedGstRate = 18.0;
   int? _selectedItemId;
+  String _catalogSearchQuery = '';
 
   @override
   void initState() {
@@ -73,6 +75,7 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
     _priceController.dispose();
     _qtyController.dispose();
     _discountController.dispose();
+    _searchCatalogController.dispose();
     super.dispose();
   }
 
@@ -85,8 +88,26 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
       _priceController.text = item.unitPrice.toString();
       _selectedUnit = item.unit;
       _selectedGstRate = item.gstRate;
-      _tabController.animateTo(0);
+      _tabController.animateTo(1);
     });
+  }
+
+  void _addDirectlyFromCatalog(ItemModel item) {
+    final computed = InvoiceItemModel.calculate(
+      itemId: item.id,
+      itemName: item.name,
+      description: item.description,
+      hsnSacCode: item.hsnSacCode,
+      quantity: 1.0,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+      discountAmount: 0.0,
+      gstRate: item.gstRate,
+      isIntraState: widget.isIntraState,
+      isGstMode: widget.isGstMode,
+    );
+    widget.onItemAdded(computed);
+    Navigator.pop(context);
   }
 
   InvoiceItemModel _computeCurrentItem() {
@@ -139,7 +160,7 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                widget.initialItem != null ? 'Edit Invoice Item' : 'Add Invoice Item',
+                widget.initialItem != null ? 'Edit Invoice Item' : 'Add Item to Invoice',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               IconButton(
@@ -157,8 +178,8 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
               unselectedLabelColor: AppColors.textSecondary,
               indicatorColor: AppColors.primary,
               tabs: const [
-                Tab(text: 'Item Details'),
-                Tab(text: 'Pick from Catalog'),
+                Tab(text: 'Saved Catalog'),
+                Tab(text: 'Custom Item'),
               ],
             ),
           ],
@@ -170,8 +191,8 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildFormView(preview),
                       _buildCatalogPicker(itemProvider),
+                      _buildFormView(preview),
                     ],
                   ),
           ),
@@ -192,36 +213,117 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
           children: [
             const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.textMuted),
             const SizedBox(height: 12),
-            const Text('No products in catalog yet', style: TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => _tabController.animateTo(0),
-              child: const Text('Enter Custom Item'),
+            const Text(
+              'No items in your catalog yet',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Create items in the Catalog tab or enter details directly',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => _tabController.animateTo(1),
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
+              label: const Text('Enter Custom Item'),
             ),
           ],
         ),
       );
     }
 
-    return ListView.separated(
-      itemCount: itemProvider.items.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final item = itemProvider.items[index];
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(
-            '${item.hsnSacCode != null ? "HSN: ${item.hsnSacCode} | " : ""}GST: ${item.gstRate.toStringAsFixed(1)}% | Unit: ${item.unit}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+    final filtered = itemProvider.items.where((i) {
+      if (_catalogSearchQuery.isEmpty) return true;
+      final q = _catalogSearchQuery.toLowerCase();
+      return i.name.toLowerCase().contains(q) ||
+          (i.hsnSacCode != null && i.hsnSacCode!.toLowerCase().contains(q)) ||
+          (i.description != null && i.description!.toLowerCase().contains(q));
+    }).toList();
+
+    return Column(
+      children: [
+        // Search in catalog
+        TextField(
+          controller: _searchCatalogController,
+          onChanged: (v) => setState(() => _catalogSearchQuery = v.trim()),
+          decoration: InputDecoration(
+            hintText: 'Search catalog items...',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            isDense: true,
+            suffixIcon: _searchCatalogController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _searchCatalogController.clear();
+                      setState(() => _catalogSearchQuery = '');
+                    },
+                  )
+                : null,
           ),
-          trailing: Text(
-            CurrencyFormatter.format(item.unitPrice, symbol: widget.currencySymbol, currencyCode: widget.currencyCode),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.primary),
-          ),
-          onTap: () => _populateFromCatalog(item),
-        );
-      },
+        ),
+        const SizedBox(height: 10),
+
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(
+                  child: Text('No catalog items match your search', style: TextStyle(color: AppColors.textMuted)),
+                )
+              : ListView.separated(
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final item = filtered[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: (item.isService ? AppColors.accent : AppColors.primary).withValues(alpha: 0.1),
+                        child: Icon(
+                          item.isService ? Icons.miscellaneous_services_rounded : Icons.inventory_2_rounded,
+                          color: item.isService ? AppColors.accent : AppColors.primary,
+                          size: 18,
+                        ),
+                      ),
+                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      subtitle: Text(
+                        '${item.hsnSacCode != null && item.hsnSacCode!.isNotEmpty ? "HSN: ${item.hsnSacCode} • " : ""}GST: ${item.gstRate.toStringAsFixed(0)}% • ${item.unit}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            CurrencyFormatter.format(item.unitPrice, symbol: widget.currencySymbol, currencyCode: widget.currencyCode),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () => _addDirectlyFromCatalog(item),
+                            child: const Text('+ Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _populateFromCatalog(item),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -260,10 +362,9 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
                 Expanded(
                   child: TextFormField(
                     controller: _hsnController,
-                    keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: 'HSN / SAC Code',
-                      hintText: 'e.g. 998311',
+                      hintText: 'e.g. 998314',
                     ),
                   ),
                 ),
@@ -271,13 +372,21 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
               ],
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedUnit,
+                  initialValue: _selectedUnit,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Unit'),
-                  items: GstSlabs.commonUnits.map((u) {
-                    return DropdownMenuItem(value: u, child: Text(u));
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedUnit = val);
+                  items: const [
+                    DropdownMenuItem(value: 'PCS', child: Text('PCS (Pieces)')),
+                    DropdownMenuItem(value: 'NOS', child: Text('NOS (Numbers)')),
+                    DropdownMenuItem(value: 'KGS', child: Text('KGS (Kilograms)')),
+                    DropdownMenuItem(value: 'MTR', child: Text('MTR (Meters)')),
+                    DropdownMenuItem(value: 'BOX', child: Text('BOX (Boxes)')),
+                    DropdownMenuItem(value: 'HRS', child: Text('HRS (Hours)')),
+                    DropdownMenuItem(value: 'DAYS', child: Text('DAYS (Days)')),
+                    DropdownMenuItem(value: 'SET', child: Text('SET (Sets)')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedUnit = v);
                   },
                 ),
               ),
@@ -285,21 +394,20 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
           ),
           const SizedBox(height: 12),
 
-          // Unit Price & Quantity
+          // Quantity & Unit Price
           Row(
             children: [
               Expanded(
                 child: TextFormField(
-                  controller: _priceController,
+                  controller: _qtyController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: 'Rate / Unit Price *',
-                    prefixText: '${widget.currencySymbol} ',
+                  decoration: const InputDecoration(
+                    labelText: 'Quantity *',
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Enter price';
-                    if (double.tryParse(v) == null) return 'Invalid number';
+                    final n = double.tryParse(v ?? '');
+                    if (n == null || n <= 0) return 'Invalid qty';
                     return null;
                   },
                 ),
@@ -307,13 +415,16 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
               const SizedBox(width: 12),
               Expanded(
                 child: TextFormField(
-                  controller: _qtyController,
+                  controller: _priceController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(labelText: 'Quantity *'),
+                  decoration: InputDecoration(
+                    labelText: 'Unit Price *',
+                    prefixText: '${widget.currencySymbol} ',
+                  ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Enter quantity';
-                    if ((double.tryParse(v) ?? 0) <= 0) return '> 0';
+                    final n = double.tryParse(v ?? '');
+                    if (n == null || n < 0) return 'Invalid price';
                     return null;
                   },
                 ),
@@ -322,22 +433,23 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
           ),
           const SizedBox(height: 12),
 
-          // GST Slab & Item Discount
+          // GST Rate & Discount
           Row(
             children: [
               if (widget.isGstMode) ...[
                 Expanded(
                   child: DropdownButtonFormField<double>(
-                    value: _selectedGstRate,
-                    decoration: const InputDecoration(labelText: 'GST Slab Rate'),
-                    items: GstSlabs.standardRates.map((r) {
+                    initialValue: _selectedGstRate,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'GST Rate'),
+                    items: GstSlabs.standardRates.map((rate) {
                       return DropdownMenuItem(
-                        value: r,
-                        child: Text('${r.toStringAsFixed(r.truncateToDouble() == r ? 0 : 2)}%'),
+                        value: rate,
+                        child: Text('${rate.toStringAsFixed(rate.truncateToDouble() == rate ? 0 : 2)}%'),
                       );
                     }).toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedGstRate = val);
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedGstRate = v);
                     },
                   ),
                 ),
@@ -362,7 +474,7 @@ class _AddItemSheetState extends State<AddItemSheet> with SingleTickerProviderSt
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant.withOpacity(0.6),
+              color: AppColors.surfaceVariant.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorder),
             ),
